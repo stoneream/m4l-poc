@@ -40,4 +40,13 @@ v8liveapi: Live API is not initialized, use live.thisdevice to determine when in
 
 状況は変わらない。
 
+## 検証3
 
+loadbang -> live.thisdevice -> init.js
+
+```
+v8: 2025-11-06T20:01:40.702Z [INFO] init: init bang received
+v8: 2025-11-06T20:01:40.703Z [INFO] init: LiveAPI callback invoked
+```
+
+警告は出力されず、コールバックが1回だけ呼び出された。
