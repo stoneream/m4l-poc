@@ -49,4 +49,11 @@ v8: 2025-11-06T20:01:40.702Z [INFO] init: init bang received
 v8: 2025-11-06T20:01:40.703Z [INFO] init: LiveAPI callback invoked
 ```
 
-警告は出力されず、コールバックが1回だけ呼び出された。
+警告は出力されず、コールバックが1回だけ呼び出された。  
+一旦、パスをログも出力する。
+
+```
+v8: 2025-11-06T20:06:26.627Z [INFO] init: init bang received  
+v8: 2025-11-06T20:06:26.628Z [INFO] init: LiveAPI callback invoked  
+v8: 2025-11-06T20:06:26.628Z [INFO] init: path  [live_set] 
+```
