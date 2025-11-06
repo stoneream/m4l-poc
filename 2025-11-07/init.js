@@ -5,14 +5,20 @@ outlet = 1;
 include("./header.js");
 
 const logger = new Logger("init");
-let liveApi = null;
+let initialized = false;
 
-function callback() {
+const liveApi = new LiveAPI(() => {
   logger.info("LiveAPI callback invoked");
-  logger.info(`path`, liveApi.path);
-}
 
-function bang() {
-  logger.info("init bang received");
-  liveApi = new LiveAPI(callback, "live_set");
-}
+  if (!initialized) {
+    initialized = true;
+    logger.info("Initialization complete");
+
+    liveApi.property = "tracks";
+    logger.info("Setting property to tracks");
+
+    return;
+  }
+
+  logger.info("Detected change in live_set tracks");
+}, "live_set tracks");
