@@ -52,8 +52,48 @@ v8: 2025-11-06T20:01:40.703Z [INFO] init: LiveAPI callback invoked
 警告は出力されず、コールバックが1回だけ呼び出された。  
 一旦、パスをログも出力する。
 
+https://github.com/stoneream/m4l-poc/blob/d9b1ee849a0e6c02f443422209ce0f7529f0673e/2025-11-07/init.js
+
 ```
 v8: 2025-11-06T20:06:26.627Z [INFO] init: init bang received  
 v8: 2025-11-06T20:06:26.628Z [INFO] init: LiveAPI callback invoked  
 v8: 2025-11-06T20:06:26.628Z [INFO] init: path  [live_set] 
 ```
+
+複数回、呼び出されることを確認するため単発でLiveAPIクラスをインスタンス化する。  
+結果としては、状態は再現しなかった。
+
+## 検証4
+
+元々の課題はインスタンス化のタイミングでのコールバックを抑制するため、初期化済みフラグを持つことで回避したい、であったため複数回の呼び出しを確認する。  
+loadbang -> live.thisdevice -> init.js ではなく、単発で init.js を配置する。
+
+https://github.com/stoneream/m4l-poc/blob/91214f0beaef292ca363a4b357f4d65ccdcc52f2/2025-11-07/init.js
+
+```
+Live API is not initialized, use live.thisdevice to determine when initialization is complete
+```
+
+警告が表示された。そもそもの現象が再現しない。  
+
+## 検証5
+
+オブジェクトが大量にある場合に重くなる仮説を検証するためノブを大量に設置した。  
+が、状態は再現しなかった。  
+
+表示されている警告のとおり、live.thisdeviceのloadbangでinit.jsを呼び出す。
+このパッチはoutletの1番にデバイスのロードが完了した際にbangを出力する。
+
+```
+v8: 2025-11-06T20:50:22.704Z [INFO] init: LiveAPI callback invoked  
+v8: 2025-11-06T20:50:22.704Z [INFO] init: Initialization complete  <-- 初期化完了フラグが立った
+v8: 2025-11-06T20:50:22.704Z [INFO] init: LiveAPI callback invoked  
+v8: 2025-11-06T20:50:22.704Z [INFO] init: Detected change in live_set tracks  <-- トラックの変更が行われていないもかかわらず、変更が検知された
+v8: 2025-11-06T20:50:22.705Z [INFO] init: LiveAPI callback invoked  
+v8: 2025-11-06T20:50:22.705Z [INFO] init: Detected change in live_set tracks  <-- トラックの変更が行われていないもかかわらず、変更が検知された
+v8: 2025-11-06T20:50:22.705Z [INFO] init: Setting property to tracks  <-- プロパティの再設定が行われたのは謎
+v8: 2025-11-06T20:50:37.048Z [INFO] init: LiveAPI callback invoked  
+v8: 2025-11-06T20:50:37.048Z [INFO] init: Detected change in live_set tracks  <-- こちらは手動でトラックの追加を行ったため正しい
+```
+
+同様の現象を確認できた。
