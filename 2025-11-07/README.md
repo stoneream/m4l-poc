@@ -13,10 +13,13 @@ https://docs.cycling74.com/apiref/js/liveapi/ の説明通りであれば、イ�
 
 > a function to be called when the LiveAPI object refers to a new object in Live (if the LiveAPI object's path changes, for instance) or when an observed property changes
 
-## 検証
+## 補足 live.thisdevice
 
-loadbangでJS側にメッセージを送り、LiveAPIを初期化する。  
-コールバックが2度呼ばれるか？を確認したい。
+https://docs.cycling74.com/reference/live.thisdevice
+
+> live.thisdevice reports three pieces of information about your Max Device. A bang message is automatically sent from the left outlet when the Max Device is opened and completely initialized, or when the containing patcher is part of another file that is opened. Additionally, a bang will be reported every time a new preset is loaded or the device is saved (and thus reloaded within the Live application). A 1 or 0 will be sent from the middle outlet when the Device is enabled or disabled, respectively. A 1 or 0 will be sent from the right outlet when preview mode for the Device is enabled or disabled, respectively. Used within Max, live.thisdevice functions essentially like the loadbang object. The middle and right outlets are inactive in this case.
+
+デバイスの初期化を保証できる。  
 
 ## 現況の挙動の確認
 
