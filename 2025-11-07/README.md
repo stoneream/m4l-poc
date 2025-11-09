@@ -90,8 +90,8 @@ v8: 2025-11-09T04:12:21.709Z [INFO] init: Initialization complete & Property set
 
 とはいえ、2発も3発も tracks changed が呼ばれなくはなった。  
 仮説は半分くらい正しいっぽい。  
-プロパティの設定後も1発コールバックが呼ばれる？  
-検証してみる。  
+プロパティの設定後も、とりあえず1発コールバックが呼ばれる？  
+フラグを用意して検証してみる。  
 
 https://github.com/stoneream/m4l-poc/blob/b6e76a693355f09e387d9050356ae7cac503cc58/2025-11-07/init.js
 
