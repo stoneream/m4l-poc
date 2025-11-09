@@ -3,11 +3,13 @@ inlet = 1;
 outlet = 1;
 
 include("./header.js");
-
 const logger = new Logger("init");
-let initialized = false;
 
-const liveApi = new LiveAPI(() => {
+let liveApi = null;
+let initialized = false;
+let detectedPropertySet = false;
+
+function callback() {
   logger.info("LiveAPI callback invoked");
 
   if (!initialized) {
@@ -15,10 +17,23 @@ const liveApi = new LiveAPI(() => {
     logger.info("Initialization complete");
 
     liveApi.property = "tracks";
-    logger.info("Setting property to tracks");
+    logger.info("Property set to tracks");
 
     return;
   }
 
-  logger.info("Detected change in live_set tracks");
-}, "live_set tracks");
+  if (!detectedPropertySet) {
+    detectedPropertySet = true;
+    logger.info("Detected property set to tracks");
+
+    return;
+  }
+
+  if (initialized && detectedPropertySet) {
+    logger.info("tracks changed");
+  }
+}
+
+function bang() {
+  liveApi = new LiveAPI(callback, "live_set");
+}
