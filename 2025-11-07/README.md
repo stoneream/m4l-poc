@@ -8,39 +8,44 @@ M4Lにおいて確実にロードが確認された後、JavaScriptを実行す�
 
 ## 背景
 
-https://github.com/stoneream/virtual-ext において、`reference.js`内のような実装を行った。  
-確実にロードが完了したことを保証する方法が本当に存在しないか？を検証したい。
+LiveAPIに設定したコールバックが、初期化のタイミングで何度も呼ばれる現象に遭遇している。  
+https://docs.cycling74.com/apiref/js/liveapi/ の説明通りであれば、インスタンス化した場合と監視対象（プロパティ）に変化があった場合にのみ呼ばれる？とのこと。  
+
+> a function to be called when the LiveAPI object refers to a new object in Live (if the LiveAPI object's path changes, for instance) or when an observed property changes
 
 ## 検証
 
 loadbangでJS側にメッセージを送り、LiveAPIを初期化する。  
 コールバックが2度呼ばれるか？を確認したい。
 
-## 検証 1
+## 現況の挙動の確認
+
+一旦、初期化フラグを持つことで、初回のコールバック呼び出しをスキップできるようにした。  
 
 https://github.com/stoneream/m4l-poc/blob/f9481f9de1c0d1e938264e39dd5bef896d3a03a3/2025-11-07/init.js
 
-オブジェクトが大量にある場合に重くなる仮説を検証するためノブを大量に設置した。  
-が、状態は再現しなかった。  
-
-表示されている警告のとおり、live.thisdeviceのloadbangでinit.jsを呼び出す。
-このパッチはoutletの1番にデバイスのロードが完了した際にbangを出力する。
+出力されたログは以下の通り。  
 
 ```
 v8: 2025-11-06T20:50:22.704Z [INFO] init: LiveAPI callback invoked  
 v8: 2025-11-06T20:50:22.704Z [INFO] init: Initialization complete  <-- 初期化完了フラグが立った
 v8: 2025-11-06T20:50:22.704Z [INFO] init: LiveAPI callback invoked  
+
 v8: 2025-11-06T20:50:22.704Z [INFO] init: Detected change in live_set tracks  <-- トラックの変更が行われていないもかかわらず、変更が検知された 1
 v8: 2025-11-06T20:50:22.705Z [INFO] init: LiveAPI callback invoked  
+
 v8: 2025-11-06T20:50:22.705Z [INFO] init: Detected change in live_set tracks  <-- トラックの変更が行われていないもかかわらず、変更が検知された 2
+
 v8: 2025-11-06T20:50:22.705Z [INFO] init: Setting property to tracks  <-- プロパティの再設定が行われたのは謎 3
+
 v8: 2025-11-06T20:50:37.048Z [INFO] init: LiveAPI callback invoked  
 v8: 2025-11-06T20:50:37.048Z [INFO] init: Detected change in live_set tracks  <-- こちらは手動でトラックの追加を行ったため正しい
 ```
 
-同様の現象を確認できた。
+同様の現象を確認できた。  
+（貼り付けたリビジョンのコードはbang関数の中に居ないけど、live.thisdeviceを刺してbang関数を呼び出しても同様の現象は起きている。）
 
-## 検証 2 & 考察
+## 考察 & 検証 2
 
 `initialized` フラグが初期状態 `false`  
 
@@ -53,15 +58,17 @@ v8: 2025-11-06T20:50:37.048Z [INFO] init: Detected change in live_set tracks  <-
 
 監視対象に `track` を追加したタイミングでも、おそらくコールバックが呼ばれている可能性がある。
 前段 A で、`initialized` フラグが `true` になっている。  
-そのため...
+
+「トラックの変更が行われていないもかかわらず、変更が検知された 2」& 「プロパティの再設定が行われたのは謎 3」
 
 ```
 if (!initialized) {}
 ```
+
 の条件をすり抜けて、トラック変更が行われていないにもかかわらず変更検知をしたように見える。
 
 プロパティの再設定が行われたように見えるのは、別に再設定が行われているわけではない。  
-AとBののコールバックがほぼ同時に呼ばれて、ログの出力が前後しただけ、の可能性が高い。  
+AとBののコールバックがほぼ同時に呼ばれて、ログの出力が前後しただけ？  
 というわけで、プロパティを初期化を検知したフラグを用意してみる。 
 
 https://github.com/stoneream/m4l-poc/blob/ecf5690ae2c773aa328eadc95b2360802a0aeaec/2025-11-07/init.js
@@ -101,3 +108,5 @@ v8: 2025-11-09T04:25:46.433Z [INFO] init: Detected change in live_set tracks  <-
 なにこれ...
 
 ## 結論
+
+tbd
