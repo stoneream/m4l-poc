@@ -16,67 +16,9 @@ https://github.com/stoneream/virtual-ext において、`reference.js`内のよ�
 loadbangでJS側にメッセージを送り、LiveAPIを初期化する。  
 コールバックが2度呼ばれるか？を確認したい。
 
-## 検証1
+## 検証 1
 
-loadbangのoutletとしてinit.jsをそのまま呼び出す。
-
-https://github.com/stoneream/m4l-poc/blob/7e8bd103f4c38c187bc4a079c5ebd301c4ac3adf/2025-11-07/init.js
-
-```
-v8: 2025-11-06T19:43:06.232Z [INFO] init: init bang received  
-Live API is not initialized, use live.thisdevice to determine when initialization is complete
-```
-
-警告が出力された。
-
-## 検証2
-
-loadbangのinit.jsの間にdeferlowを挟む。
-
-```
-v8: 2025-11-06T19:56:09.465Z [INFO] init: init bang received  
-v8liveapi: Live API is not initialized, use live.thisdevice to determine when initialization is complete
-```
-
-状況は変わらない。
-
-## 検証3
-
-loadbang -> live.thisdevice -> init.js
-
-```
-v8: 2025-11-06T20:01:40.702Z [INFO] init: init bang received
-v8: 2025-11-06T20:01:40.703Z [INFO] init: LiveAPI callback invoked
-```
-
-警告は出力されず、コールバックが1回だけ呼び出された。  
-一旦、パスをログも出力する。
-
-https://github.com/stoneream/m4l-poc/blob/d9b1ee849a0e6c02f443422209ce0f7529f0673e/2025-11-07/init.js
-
-```
-v8: 2025-11-06T20:06:26.627Z [INFO] init: init bang received  
-v8: 2025-11-06T20:06:26.628Z [INFO] init: LiveAPI callback invoked  
-v8: 2025-11-06T20:06:26.628Z [INFO] init: path  [live_set] 
-```
-
-複数回、呼び出されることを確認するため単発でLiveAPIクラスをインスタンス化する。  
-結果としては、状態は再現しなかった。
-
-## 検証4
-
-元々の課題はインスタンス化のタイミングでのコールバックを抑制するため、初期化済みフラグを持つことで回避したい、であったため複数回の呼び出しを確認する。  
-loadbang -> live.thisdevice -> init.js ではなく、単発で init.js を配置する。
-
-https://github.com/stoneream/m4l-poc/blob/91214f0beaef292ca363a4b357f4d65ccdcc52f2/2025-11-07/init.js
-
-```
-Live API is not initialized, use live.thisdevice to determine when initialization is complete
-```
-
-警告が表示された。そもそもの現象が再現しない。  
-
-## 検証5
+https://github.com/stoneream/m4l-poc/blob/f9481f9de1c0d1e938264e39dd5bef896d3a03a3/2025-11-07/init.js
 
 オブジェクトが大量にある場合に重くなる仮説を検証するためノブを大量に設置した。  
 が、状態は再現しなかった。  
@@ -88,18 +30,74 @@ Live API is not initialized, use live.thisdevice to determine when initializatio
 v8: 2025-11-06T20:50:22.704Z [INFO] init: LiveAPI callback invoked  
 v8: 2025-11-06T20:50:22.704Z [INFO] init: Initialization complete  <-- 初期化完了フラグが立った
 v8: 2025-11-06T20:50:22.704Z [INFO] init: LiveAPI callback invoked  
-v8: 2025-11-06T20:50:22.704Z [INFO] init: Detected change in live_set tracks  <-- トラックの変更が行われていないもかかわらず、変更が検知された
+v8: 2025-11-06T20:50:22.704Z [INFO] init: Detected change in live_set tracks  <-- トラックの変更が行われていないもかかわらず、変更が検知された 1
 v8: 2025-11-06T20:50:22.705Z [INFO] init: LiveAPI callback invoked  
-v8: 2025-11-06T20:50:22.705Z [INFO] init: Detected change in live_set tracks  <-- トラックの変更が行われていないもかかわらず、変更が検知された
-v8: 2025-11-06T20:50:22.705Z [INFO] init: Setting property to tracks  <-- プロパティの再設定が行われたのは謎
+v8: 2025-11-06T20:50:22.705Z [INFO] init: Detected change in live_set tracks  <-- トラックの変更が行われていないもかかわらず、変更が検知された 2
+v8: 2025-11-06T20:50:22.705Z [INFO] init: Setting property to tracks  <-- プロパティの再設定が行われたのは謎 3
 v8: 2025-11-06T20:50:37.048Z [INFO] init: LiveAPI callback invoked  
 v8: 2025-11-06T20:50:37.048Z [INFO] init: Detected change in live_set tracks  <-- こちらは手動でトラックの追加を行ったため正しい
 ```
 
 同様の現象を確認できた。
 
-## 結論
+## 検証 2 & 考察
 
-LiveAPIに渡したコールバック関数は何度も呼ばれるものとして許容する。  
-どのトラックに影響があったか？はやはり追跡できない都合があるにはある。  
-そのため、状態を確実に記録し差分を取ることができる仕組みを作るのが正しい。
+`initialized` フラグが初期状態 `false`  
+
+「初期化完了フラグが立った」
+
+インスタンス化されたタイミングで一発目コールバックが呼ばれる。  
+`initialized` フラグを `true` にしつつ、監視対象に `track` を追加する。
+
+「トラックの変更が行われていないもかかわらず、変更が検知された 1」
+
+監視対象に `track` を追加したタイミングでも、おそらくコールバックが呼ばれている可能性がある。
+前段 A で、`initialized` フラグが `true` になっている。  
+そのため...
+
+```
+if (!initialized) {}
+```
+の条件をすり抜けて、トラック変更が行われていないにもかかわらず変更検知をしたように見える。
+
+プロパティの再設定が行われたように見えるのは、別に再設定が行われているわけではない。  
+AとBののコールバックがほぼ同時に呼ばれて、ログの出力が前後しただけ、の可能性が高い。  
+というわけで、プロパティを初期化を検知したフラグを用意してみる。 
+
+https://github.com/stoneream/m4l-poc/blob/ecf5690ae2c773aa328eadc95b2360802a0aeaec/2025-11-07/init.js
+
+```
+v8: 2025-11-09T04:12:21.709Z [INFO] init: LiveAPI callback invoked  
+v8: 2025-11-09T04:12:21.709Z [INFO] init: LiveAPI callback invoked  
+v8: 2025-11-09T04:12:21.709Z [INFO] init: Detected property set to tracks  <-- プロパティの初期化のタイミングでも呼ばれるっぽい
+v8: 2025-11-09T04:12:21.709Z [INFO] init: LiveAPI callback invoked  
+v8: 2025-11-09T04:12:21.709Z [INFO] init: tracks changed  <-- トラック触ってないのに謎の検知
+v8: 2025-11-09T04:12:21.709Z [INFO] init: Initialization complete & Property set to tracks  
+```
+
+もはやログの出力順序がわけのわからないことになってしまった...  
+(そもそも、postの挙動自体が信頼できなくなってきたな...)  
+
+とはいえ、2発も3発も tracks changed が呼ばれなくはなった。  
+仮説は半分くらい正しいっぽい。  
+プロパティの設定後も1発コールバックが呼ばれる？  
+検証してみる。  
+
+https://github.com/stoneream/m4l-poc/blob/b6e76a693355f09e387d9050356ae7cac503cc58/2025-11-07/init.js
+
+```
+v8: 2025-11-09T04:22:47.803Z [INFO] init: LiveAPI callback invoked  
+v8: 2025-11-09T04:22:47.803Z [INFO] init: LiveAPI callback invoked  
+v8: 2025-11-09T04:22:47.803Z [INFO] init: Detected property set to tracks  
+v8: 2025-11-09T04:22:47.804Z [INFO] init: LiveAPI callback invoked  
+v8: 2025-11-09T04:22:47.804Z [INFO] init: Detected first callback after property set  <-- 合ってたっぽい
+v8: 2025-11-09T04:22:47.804Z [INFO] init: Initialization complete & Property set to tracks  
+
+v8: 2025-11-09T04:25:46.433Z [INFO] init: LiveAPI callback invoked  
+v8: 2025-11-09T04:25:46.433Z [INFO] init: Detected change in live_set tracks  <-- 手動でトラックを触った
+```
+
+合ってたっぽい。  
+なにこれ...
+
+## 結論
