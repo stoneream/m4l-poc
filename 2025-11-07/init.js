@@ -14,11 +14,9 @@ function callback() {
 
   if (!initialized) {
     initialized = true;
-    logger.info("Initialization complete");
-
     liveApi.property = "tracks";
-    logger.info("Property set to tracks");
 
+    logger.info("Initialization complete & Property set to tracks");
     return;
   }
 
