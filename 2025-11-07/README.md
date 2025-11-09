@@ -2,24 +2,24 @@
 title: 2025-11-07 PoC
 ---
 
-## これは何
-
-M4Lにおいて確実にロードが確認された後、JavaScriptを実行することができるか？を検証したい。
-
 ## 背景
 
 LiveAPIに設定したコールバックが、初期化のタイミングで何度も呼ばれる現象に遭遇している。  
 https://docs.cycling74.com/apiref/js/liveapi/ の説明通りであれば、インスタンス化した場合と監視対象（プロパティ）に変化があった場合にのみ呼ばれる？とのこと。  
 
+説明どおりのことが全然起きてない。  
+
 > a function to be called when the LiveAPI object refers to a new object in Live (if the LiveAPI object's path changes, for instance) or when an observed property changes
 
-## 補足 live.thisdevice
+## live.thisdevice (補足)
 
 https://docs.cycling74.com/reference/live.thisdevice
 
 > live.thisdevice reports three pieces of information about your Max Device. A bang message is automatically sent from the left outlet when the Max Device is opened and completely initialized, or when the containing patcher is part of another file that is opened. Additionally, a bang will be reported every time a new preset is loaded or the device is saved (and thus reloaded within the Live application). A 1 or 0 will be sent from the middle outlet when the Device is enabled or disabled, respectively. A 1 or 0 will be sent from the right outlet when preview mode for the Device is enabled or disabled, respectively. Used within Max, live.thisdevice functions essentially like the loadbang object. The middle and right outlets are inactive in this case.
 
 デバイスの初期化を保証できる。  
+初期化されてない状態で、LiveAPIのインスタンス化を行うとエラーが起きる。  
+live.thisdevice の bang を受け取って、JavaScirpt内で LiveAPI のインスタンス化を行うのがセオリー。  
 
 ## 現況の挙動の確認
 
