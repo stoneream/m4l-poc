@@ -8,6 +8,7 @@ const logger = new Logger("init");
 let liveApi = null;
 let initialized = false;
 let detectedPropertySet = false;
+let detectedFirst = false;
 
 function callback() {
   logger.info("LiveAPI callback invoked");
@@ -27,9 +28,14 @@ function callback() {
     return;
   }
 
-  if (initialized && detectedPropertySet) {
-    logger.info("tracks changed");
+  if (!detectedFirst) {
+    detectedFirst = true;
+    logger.info("Detected first callback after property set");
+
+    return;
   }
+
+  logger.info("Detected change in live_set tracks");
 }
 
 function bang() {
