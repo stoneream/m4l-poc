@@ -5,22 +5,29 @@ outlets = 4;
 
 let logger = new Logger("main");
 
-let selectedTrackPath = null;
-let selectedDevicePath = null;
-let selectedParameterPath = null;
+const OUTLETS = {
+  TRACK_MENU: 0,
+  DEVICE_MENU: 1,
+  PARAMETER_MENU: 2,
+  DIAL_VALUE: 3,
+};
+
+let selectedTrack = null;
+let selectedDevice = null;
+let selectedParameter = null;
 
 // live.thisdeviceによるbangトリガー
 function bang() {
   let liveSet = new LiveAPI("live_set");
 
   // トラックメニューをクリア
-  outlet(0, "clear");
+  outlet(OUTLETS.TRACK_MENU, "clear");
   // デバイスメニューをクリア
-  outlet(1, "clear");
+  outlet(OUTLETS.DEVICE_MENU, "clear");
   // パラメーターメニューをクリア
-  outlet(2, "clear");
+  outlet(OUTLETS.PARAMETER_MENU, "clear");
   // ダイアルをクリア
-  outlet(3, 0.0);
+  outlet(OUTLETS.DIAL_VALUE, 0.0);
 
   // トラックを走査しメニューに追加
   let trackCount = liveSet.getcount("tracks");
@@ -29,7 +36,7 @@ function bang() {
     let trackApi = new LiveAPI(trackPath);
     let trackName = trackApi.get("name");
 
-    outlet(0, "append", trackName);
+    outlet(OUTLETS.TRACK_MENU, "append", trackName);
   }
 }
 
@@ -65,7 +72,7 @@ function selectTrack(trackName) {
   let liveSet = new LiveAPI("live_set");
   let trackCount = liveSet.getcount("tracks");
 
-  let foundTrackPath = null;
+  let foundTrack = null;
 
   // トラックを走査して名前が一致するトラックを探す
   // 計算量がO(n)となるが、ひとまずは許容するものとする
@@ -75,137 +82,137 @@ function selectTrack(trackName) {
     let currentTrackName = String(trackApi.get("name")).toString();
 
     if (currentTrackName === trackName) {
-      foundTrackPath = trackPath;
+      foundTrack = trackApi;
       break;
     }
   }
 
   // トラックが見つからなかった場合は警告を出して終了
-  if (!foundTrackPath) {
+  if (!foundTrack) {
     logger.warn("Track not found", { trackName: trackName });
     return;
   }
 
   // 選択されたトラックが同じ場合は何もしない
-  if (foundTrackPath === selectedTrackPath) {
+  if (selectedTrack && foundTrack.path === selectedTrack.path) {
     return;
   }
 
   // デバイスメニューをクリア
-  selectedTrackPath = foundTrackPath;
-  outlet(1, "clear");
+  selectedTrack = foundTrack;
+  // 下位階層をリセット
+  selectedDevice = null;
+  selectedParameter = null;
+
+  outlet(OUTLETS.DEVICE_MENU, "clear");
 
   // デバイスを走査しメニューに追加
-  let trackToSelect = new LiveAPI(foundTrackPath);
-  let deviceCount = trackToSelect.getcount("devices");
+  let deviceCount = selectedTrack.getcount("devices");
   for (let i = 0; i < deviceCount; i++) {
-    let devicePath = `${foundTrackPath} devices ${i}`;
+    let devicePath = `${foundTrack.path} devices ${i}`;
     let deviceApi = new LiveAPI(devicePath);
     let deviceName = deviceApi.get("name");
 
-    outlet(1, "append", deviceName);
+    outlet(OUTLETS.DEVICE_MENU, "append", deviceName);
   }
 }
 
 function selectDevice(deviceName) {
   // トラックが選択されていない場合は警告を出して終了
-  if (!selectedTrackPath) {
+  if (!selectedTrack) {
     logger.warn("No track selected");
     return;
   }
 
-  let trackApi = new LiveAPI(selectedTrackPath);
-  let deviceCount = trackApi.getcount("devices");
-  let foundDevicePath = null;
+  let deviceCount = selectedTrack.getcount("devices");
+  let foundDevice = null;
 
   // デバイスを走査して名前が一致するデバイスを探す
   // 計算量がO(n)となるが、ひとまずは許容するものとする
   for (let i = 0; i < deviceCount; i++) {
-    let devicePath = `${selectedTrackPath} devices ${i}`;
+    let devicePath = `${selectedTrack.path} devices ${i}`;
     let deviceApi = new LiveAPI(devicePath);
     let currentDeviceName = String(deviceApi.get("name")).toString();
 
     if (currentDeviceName === deviceName) {
-      foundDevicePath = devicePath;
+      foundDevice = deviceApi;
       break;
     }
   }
 
   // デバイスが見つからなかった場合は警告を出して終了
-  if (!foundDevicePath) {
+  if (!foundDevice) {
     logger.warn("Device not found", { deviceName: deviceName });
     return;
   }
 
   // 選択されたデバイスが同じ場合は何もしない
-  if (foundDevicePath === selectedDevicePath) {
+  if (selectedDevice && foundDevice.path === selectedDevice.path) {
     return;
   }
 
+  selectedDevice = foundDevice;
+  // 下位階層をリセット
+  selectedParameter = null;
   // パラメーターメニューをクリア
-  selectedDevicePath = foundDevicePath;
-  outlet(2, "clear");
+  outlet(OUTLETS.PARAMETER_MENU, "clear");
 
   // パラメーターを走査しメニューに追加
-  let deviceToSelect = new LiveAPI(foundDevicePath);
-  let parameterCount = deviceToSelect.getcount("parameters");
+  let parameterCount = selectedDevice.getcount("parameters");
   for (let i = 0; i < parameterCount; i++) {
-    let parameterPath = `${foundDevicePath} parameters ${i}`;
+    let parameterPath = `${selectedDevice.path} parameters ${i}`;
     let parameterApi = new LiveAPI(parameterPath);
     let parameterName = parameterApi.get("name");
-    outlet(2, "append", parameterName);
+    outlet(OUTLETS.PARAMETER_MENU, "append", parameterName);
   }
 }
 
 function selectParameter(parameterName) {
   // デバイスが選択されていない場合は警告を出して終了
-  if (!selectedDevicePath) {
+  if (!selectedDevice) {
     logger.warn("No device selected");
     return;
   }
 
-  let deviceApi = new LiveAPI(selectedDevicePath);
-  let parameterCount = deviceApi.getcount("parameters");
-  let foundParameterPath = null;
+  let parameterCount = selectedDevice.getcount("parameters");
+  let foundParameter = null;
 
   // パラメーターを走査して名前が一致するパラメーターを探す
   // 計算量がO(n)となるが、ひとまずは許容するものとする
   for (let i = 0; i < parameterCount; i++) {
-    let parameterPath = `${selectedDevicePath} parameters ${i}`;
+    let parameterPath = `${selectedDevice.path} parameters ${i}`;
     let parameterApi = new LiveAPI(parameterPath);
     let currentParameterName = String(parameterApi.get("name")).toString();
     if (currentParameterName === parameterName) {
-      foundParameterPath = parameterPath;
+      foundParameter = parameterApi;
       break;
     }
   }
 
   // パラメーターが見つからなかった場合は警告を出して終了
-  if (!foundParameterPath) {
+  if (!foundParameter) {
     logger.warn("Parameter not found", { parameterName: parameterName });
     return;
   }
 
   // 選択されたパラメーターが同じ場合は何もしない
-  if (foundParameterPath === selectedParameterPath) {
+  if (selectedParameter && selectedParameter.path === foundParameter.path) {
     return;
   }
 
-  selectedParameterPath = foundParameterPath;
+  selectedParameter = foundParameter;
 
   // 選択されたパラメーターをダイアルに反映
-  let parameterToSelect = new LiveAPI(foundParameterPath);
-  let parameterValue = parameterToSelect.get("value");
-  outlet(3, parameterValue);
+  let parameterValue = selectedParameter.get("value");
+  outlet(OUTLETS.DIAL_VALUE, parameterValue);
 }
 
 function setParameterValue(value) {
   // パラメーターが選択されていない場合は警告を出して終了
-  if (!selectedParameterPath) {
+  if (!selectedParameter) {
     logger.warn("No parameter selected");
     return;
   }
 
-  let parameterApi = new LiveAPI(selectedParameterPath);
-  parameterApi.set("value", value);
+  selectedParameter.set("value", value);
 }
