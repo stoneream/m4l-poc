@@ -16,6 +16,47 @@ let selectedTrack = null;
 let selectedDevice = null;
 let selectedParameter = null;
 
+/**
+ * 検索対象の名前に一致するアイテムを親API配下から探して返す
+ * @param {LiveAPI} parentApi 親APIオブジェクト
+ * @param {string} itemType アイテムの種類（例: "tracks", "devices", "parameters"）
+ * @param {string} targetName 検索対象の名前
+ * @returns
+ */
+function findItemByName(parentApi, itemType, targetName) {
+  const itemCount = parentApi.getcount(itemType);
+
+  // O(n)の探索となるが大量のパラメーターが存在することを想定していないため許容する
+  for (let i = 0; i < itemCount; i++) {
+    const itemPath = `${parentApi.path} ${itemType} ${i}`;
+    const itemApi = new LiveAPI(itemPath);
+    const currentName = String(itemApi.get("name")).toString();
+
+    if (currentName === targetName) {
+      return itemApi;
+    }
+  }
+  return null;
+}
+
+/**
+ * 親API配下のアイテムをメニューに追加する
+ * @param {LiveAPI} parentApi 親APIオブジェクト
+ * @param {string} itemType アイテムの種類（例: "tracks", "devices", "parameters"）
+ * @param {number} outletIndex 出力先のアウトレットインデックス
+ */
+function populateMenu(parentApi, itemType, outletIndex) {
+  outlet(outletIndex, "clear");
+
+  const itemCount = parentApi.getcount(itemType);
+  for (let i = 0; i < itemCount; i++) {
+    const itemPath = `${parentApi.path} ${itemType} ${i}`;
+    const itemApi = new LiveAPI(itemPath);
+    const itemName = itemApi.get("name");
+    outlet(outletIndex, "append", itemName);
+  }
+}
+
 // live.thisdeviceによるbangトリガー
 function bang() {
   let liveSet = new LiveAPI("live_set");
@@ -70,22 +111,7 @@ function anything() {
 
 function selectTrack(trackName) {
   let liveSet = new LiveAPI("live_set");
-  let trackCount = liveSet.getcount("tracks");
-
-  let foundTrack = null;
-
-  // トラックを走査して名前が一致するトラックを探す
-  // 計算量がO(n)となるが、ひとまずは許容するものとする
-  for (let i = 0; i < trackCount; i++) {
-    let trackPath = `live_set tracks ${i}`;
-    let trackApi = new LiveAPI(trackPath);
-    let currentTrackName = String(trackApi.get("name")).toString();
-
-    if (currentTrackName === trackName) {
-      foundTrack = trackApi;
-      break;
-    }
-  }
+  let foundTrack = findItemByName(liveSet, "tracks", trackName);
 
   // トラックが見つからなかった場合は警告を出して終了
   if (!foundTrack) {
@@ -104,17 +130,7 @@ function selectTrack(trackName) {
   selectedDevice = null;
   selectedParameter = null;
 
-  outlet(OUTLETS.DEVICE_MENU, "clear");
-
-  // デバイスを走査しメニューに追加
-  let deviceCount = selectedTrack.getcount("devices");
-  for (let i = 0; i < deviceCount; i++) {
-    let devicePath = `${foundTrack.path} devices ${i}`;
-    let deviceApi = new LiveAPI(devicePath);
-    let deviceName = deviceApi.get("name");
-
-    outlet(OUTLETS.DEVICE_MENU, "append", deviceName);
-  }
+  populateMenu(selectedTrack, "devices", OUTLETS.DEVICE_MENU);
 }
 
 function selectDevice(deviceName) {
@@ -124,21 +140,7 @@ function selectDevice(deviceName) {
     return;
   }
 
-  let deviceCount = selectedTrack.getcount("devices");
-  let foundDevice = null;
-
-  // デバイスを走査して名前が一致するデバイスを探す
-  // 計算量がO(n)となるが、ひとまずは許容するものとする
-  for (let i = 0; i < deviceCount; i++) {
-    let devicePath = `${selectedTrack.path} devices ${i}`;
-    let deviceApi = new LiveAPI(devicePath);
-    let currentDeviceName = String(deviceApi.get("name")).toString();
-
-    if (currentDeviceName === deviceName) {
-      foundDevice = deviceApi;
-      break;
-    }
-  }
+  let foundDevice = findItemByName(selectedTrack, "devices", deviceName);
 
   // デバイスが見つからなかった場合は警告を出して終了
   if (!foundDevice) {
@@ -154,17 +156,8 @@ function selectDevice(deviceName) {
   selectedDevice = foundDevice;
   // 下位階層をリセット
   selectedParameter = null;
-  // パラメーターメニューをクリア
-  outlet(OUTLETS.PARAMETER_MENU, "clear");
 
-  // パラメーターを走査しメニューに追加
-  let parameterCount = selectedDevice.getcount("parameters");
-  for (let i = 0; i < parameterCount; i++) {
-    let parameterPath = `${selectedDevice.path} parameters ${i}`;
-    let parameterApi = new LiveAPI(parameterPath);
-    let parameterName = parameterApi.get("name");
-    outlet(OUTLETS.PARAMETER_MENU, "append", parameterName);
-  }
+  populateMenu(selectedDevice, "parameters", OUTLETS.PARAMETER_MENU);
 }
 
 function selectParameter(parameterName) {
@@ -174,20 +167,11 @@ function selectParameter(parameterName) {
     return;
   }
 
-  let parameterCount = selectedDevice.getcount("parameters");
-  let foundParameter = null;
-
-  // パラメーターを走査して名前が一致するパラメーターを探す
-  // 計算量がO(n)となるが、ひとまずは許容するものとする
-  for (let i = 0; i < parameterCount; i++) {
-    let parameterPath = `${selectedDevice.path} parameters ${i}`;
-    let parameterApi = new LiveAPI(parameterPath);
-    let currentParameterName = String(parameterApi.get("name")).toString();
-    if (currentParameterName === parameterName) {
-      foundParameter = parameterApi;
-      break;
-    }
-  }
+  let foundParameter = findItemByName(
+    selectedDevice,
+    "parameters",
+    parameterName
+  );
 
   // パラメーターが見つからなかった場合は警告を出して終了
   if (!foundParameter) {
