@@ -57,28 +57,27 @@ function populateMenu(parentApi, itemType, outletIndex) {
   }
 }
 
+/**
+ * 現在選択されているアイテムと新たに見つかったアイテムが同じかどうかを判定する
+ * @param {LiveAPI} current 現在選択されているアイテムのAPIオブジェクト
+ * @param {LiveAPI} found 新たに見つかったアイテムのAPIオブジェクト
+ * @returns
+ */
+function isSameSelection(current, found) {
+  return current && found && current.path === found.path;
+}
+
 // live.thisdeviceによるbangトリガー
 function bang() {
   let liveSet = new LiveAPI("live_set");
 
-  // トラックメニューをクリア
-  outlet(OUTLETS.TRACK_MENU, "clear");
-  // デバイスメニューをクリア
-  outlet(OUTLETS.DEVICE_MENU, "clear");
-  // パラメーターメニューをクリア
-  outlet(OUTLETS.PARAMETER_MENU, "clear");
-  // ダイアルをクリア
-  outlet(OUTLETS.DIAL_VALUE, 0.0);
+  // 全メニューのクリア
+  Object.values(OUTLETS).forEach((outletIndex) => {
+    outlet(outletIndex, "clear");
+  });
 
-  // トラックを走査しメニューに追加
-  let trackCount = liveSet.getcount("tracks");
-  for (let i = 0; i < trackCount; i++) {
-    let trackPath = `live_set tracks ${i}`;
-    let trackApi = new LiveAPI(trackPath);
-    let trackName = trackApi.get("name");
-
-    outlet(OUTLETS.TRACK_MENU, "append", trackName);
-  }
+  // トラックメニューの初期化
+  populateMenu(liveSet, "tracks", OUTLETS.TRACK_MENU);
 }
 
 function anything() {
@@ -120,7 +119,7 @@ function selectTrack(trackName) {
   }
 
   // 選択されたトラックが同じ場合は何もしない
-  if (selectedTrack && foundTrack.path === selectedTrack.path) {
+  if (isSameSelection(selectedTrack, foundTrack)) {
     return;
   }
 
@@ -130,6 +129,7 @@ function selectTrack(trackName) {
   selectedDevice = null;
   selectedParameter = null;
 
+  // デバイスメニューを更新
   populateMenu(selectedTrack, "devices", OUTLETS.DEVICE_MENU);
 }
 
@@ -149,7 +149,7 @@ function selectDevice(deviceName) {
   }
 
   // 選択されたデバイスが同じ場合は何もしない
-  if (selectedDevice && foundDevice.path === selectedDevice.path) {
+  if (isSameSelection(selectedDevice, foundDevice)) {
     return;
   }
 
@@ -157,6 +157,7 @@ function selectDevice(deviceName) {
   // 下位階層をリセット
   selectedParameter = null;
 
+  // パラメーターメニューを更新
   populateMenu(selectedDevice, "parameters", OUTLETS.PARAMETER_MENU);
 }
 
@@ -180,7 +181,7 @@ function selectParameter(parameterName) {
   }
 
   // 選択されたパラメーターが同じ場合は何もしない
-  if (selectedParameter && selectedParameter.path === foundParameter.path) {
+  if (isSameSelection(selectedParameter, foundParameter)) {
     return;
   }
 
